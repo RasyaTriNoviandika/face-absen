@@ -10,7 +10,7 @@ use App\Http\Controllers\FaceRecognitionController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-    return view('welcome');
+    return view('index');
 });
 
 // Face Recognition Public Routes (untuk karyawan absen)
