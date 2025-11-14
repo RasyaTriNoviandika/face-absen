@@ -10,10 +10,25 @@ class IsAdmin
 {
     public function handle(Request $request, Closure $next): Response
     {
-        if (auth()->check() && auth()->user()->role === 'admin') {
-            return $next($request);
+        if (!auth()->check()) {
+            return redirect()->route('login')
+                ->with('error', 'Silakan login terlebih dahulu.');
         }
 
-        abort(403, 'Unauthorized action.');
+        $user = auth()->user();
+
+        // Check if user is admin or superadmin
+        if (!$user->isAdmin()) {
+            abort(403, 'Akses ditolak. Anda tidak memiliki izin untuk mengakses halaman ini.');
+        }
+
+        // Check if user is active
+        if (!$user->is_active) {
+            auth()->logout();
+            return redirect()->route('login')
+                ->with('error', 'Akun Anda telah dinonaktifkan.');
+        }
+
+        return $next($request);
     }
 }

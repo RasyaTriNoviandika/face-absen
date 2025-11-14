@@ -12,8 +12,8 @@ return new class extends Migration
             // Tambah kolom untuk employee relation
             $table->foreignId('employee_id')->nullable()->after('id')->constrained()->onDelete('cascade');
             
-            // Update role enum untuk support lebih banyak role
-            $table->dropColumn('role');
+            // // Update role enum untuk support lebih banyak role
+            // $table->dropColumn('role');
         });
         
         Schema::table('users', function (Blueprint $table) {

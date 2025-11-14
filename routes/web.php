@@ -9,21 +9,22 @@ use App\Http\Controllers\Admin\SettingController;
 use App\Http\Controllers\FaceRecognitionController;
 use Illuminate\Support\Facades\Route;
 
+// Landing Page
 Route::get('/', function () {
     return view('index');
-});
+})->name('home');
 
-// Face Recognition Public Routes (untuk karyawan absen)
+// Face Recognition Public Routes
 Route::get('/attendance', function () {
     return view('attendance');
 })->name('attendance.page');
 
 // Face Recognition API Routes
 Route::prefix('api/face')->group(function () {
-    Route::post('/register', [FaceRecognitionController::class, 'registerFace']);
-    Route::get('/registered', [FaceRecognitionController::class, 'getRegisteredFaces']);
-    Route::post('/check-in', [FaceRecognitionController::class, 'checkIn']);
-    Route::post('/check-out', [FaceRecognitionController::class, 'checkOut']);
+    Route::post('/register', [FaceRecognitionController::class, 'registerFace'])->name('api.face.register');
+    Route::get('/registered', [FaceRecognitionController::class, 'getRegisteredFaces'])->name('api.face.registered');
+    Route::post('/check-in', [FaceRecognitionController::class, 'checkIn'])->name('api.face.checkin');
+    Route::post('/check-out', [FaceRecognitionController::class, 'checkOut'])->name('api.face.checkout');
 });
 
 // Admin Routes
@@ -32,12 +33,9 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     
     // Employee Management
     Route::resource('employees', EmployeeController::class);
-    Route::get('employees/{employee}/register-face', [EmployeeController::class, 'registerFacePage'])
-        ->name('employees.register-face');
     
-    // Attendance
-    Route::get('/attendances', [AttendanceController::class, 'index'])->name('attendances.index');
-    Route::get('/attendances/{attendance}', [AttendanceController::class, 'show'])->name('attendances.show');
+    // Attendance Management
+    Route::resource('attendances', AttendanceController::class);
     
     // Reports
     Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
@@ -48,6 +46,7 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::post('/settings', [SettingController::class, 'update'])->name('settings.update');
 });
 
+// Authenticated User Routes
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
