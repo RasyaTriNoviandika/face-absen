@@ -9,23 +9,27 @@ use Illuminate\Support\Facades\Hash;
 class AdminSeeder extends Seeder
 {
     public function run(): void
-    {
-        // Create Super Admin
-        User::create([
+{
+    // Create or update Super Admin
+    User::updateOrCreate(
+        ['email' => 'admin@faceattend.com'], // cek berdasarkan email
+        [
             'name' => 'Super Admin',
-            'email' => 'admin@faceattend.com',
             'password' => Hash::make('password'),
             'role' => 'superadmin',
             'is_active' => true,
-        ]);
+        ]
+    );
 
-        // Create Regular Admin
-        User::create([
+    // Create or update Regular Admin
+    User::updateOrCreate(
+        ['email' => 'admin2@faceattend.com'], // cek berdasarkan email
+        [
             'name' => 'Admin',
-            'email' => 'admin2@faceattend.com',
             'password' => Hash::make('password'),
             'role' => 'admin',
             'is_active' => true,
-        ]);
-    }
+        ]
+    );
+}
 }

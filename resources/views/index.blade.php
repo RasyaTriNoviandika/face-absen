@@ -37,7 +37,7 @@
                         </svg>
                     </div>
                     <span class="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                        FaceAttend
+                        FaceAbsen
                     </span>
                 </div>
                 

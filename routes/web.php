@@ -14,6 +14,18 @@ Route::get('/', function () {
     return view('index');
 })->name('home');
 
+Route::get('/dashboard', function () {
+    return view('dashboard');
+})->middleware(['auth'])->name('dashboard');
+
+// Route Untuk User Attedance history
+Route::middleware('auth')->get('/user/attendance', function () {
+    $attendances = Auth::user()->employee
+        ? Auth::user()->employee->attendances()->latest()->paginate(20)
+        : collect();
+    return view('user.attendance', compact('attendances'));    
+})->name('user.attendance');
+
 // Face Recognition Public Routes
 Route::get('/attendance', function () {
     return view('attendance');
@@ -29,18 +41,25 @@ Route::prefix('api/face')->group(function () {
 
 // Admin Routes
 Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(function () {
+
+    // Redirect jika buka /admin
+    Route::get('/', function () {
+        return redirect()->route('admin.dashboard');
+    });
+
+    // Dashboard
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
-    
+
     // Employee Management
     Route::resource('employees', EmployeeController::class);
-    
+
     // Attendance Management
     Route::resource('attendances', AttendanceController::class);
-    
+
     // Reports
     Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
     Route::get('/reports/export', [ReportController::class, 'export'])->name('reports.export');
-    
+
     // Settings
     Route::get('/settings', [SettingController::class, 'index'])->name('settings.index');
     Route::post('/settings', [SettingController::class, 'update'])->name('settings.update');
