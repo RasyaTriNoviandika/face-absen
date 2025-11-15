@@ -61,7 +61,7 @@
 
         {{-- MAIN CONTENT --}}
         <main class="max-w-7xl mx-auto px-6 py-6">
-            {{ $slot }}
+            @yield('content')
         </main>
 
     </div>

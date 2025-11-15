@@ -11,6 +11,8 @@ class DatabaseSeeder extends Seeder
         $this->call([
             SettingSeeder::class,
             AdminSeeder::class,
+            // Uncomment line below untuk generate sample data
+            // SampleDataSeeder::class,
         ]);
     }
 }

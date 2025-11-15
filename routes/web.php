@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\AttendanceController;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\SettingController;
 use App\Http\Controllers\FaceRecognitionController;
+use App\Http\Controllers\User\UserAttendanceController;
 use Illuminate\Support\Facades\Route;
 
 // Landing Page
@@ -18,13 +19,9 @@ Route::get('/dashboard', function () {
     return view('dashboard');
 })->middleware(['auth'])->name('dashboard');
 
-// Route Untuk User Attedance history
-Route::middleware('auth')->get('/user/attendance', function () {
-    $attendances = Auth::user()->employee
-        ? Auth::user()->employee->attendances()->latest()->paginate(20)
-        : collect();
-    return view('user.attendance', compact('attendances'));    
-})->name('user.attendance');
+// Route Untuk User Attendance history
+Route::middleware('auth')->get('/user/attendance', [UserAttendanceController::class, 'index'])
+    ->name('user.attendance');
 
 // Face Recognition Public Routes
 Route::get('/attendance', function () {
@@ -46,6 +43,10 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::get('/', function () {
         return redirect()->route('admin.dashboard');
     });
+
+    //Regisiter face
+    Route::get('/employess/{employee}/register-face', [EmployeeController::class, 'registerFace'])
+        ->name('employees.registerFace');
 
     // Dashboard
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');

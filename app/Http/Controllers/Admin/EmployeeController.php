@@ -94,4 +94,10 @@ class EmployeeController extends Controller
         return redirect()->route('admin.employees.index')
             ->with('success', 'Karyawan berhasil dihapus');
     }
+
+    // Tambahan: Method untuk halaman registrasi wajah
+    public function registerFace(Employee $employee)
+    {
+        return view('admin.employees.register-face', compact('employee'));
+    }
 }

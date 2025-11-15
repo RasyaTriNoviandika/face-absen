@@ -57,6 +57,33 @@
                         </a>
                     </div>
 
+                    {{-- Tambahkan di bagian tombol action, setelah tombol "Edit Profil" --}}
+
+<div class="flex items-center gap-3">
+    <a href="{{ route('admin.employees.edit', $employee) }}" 
+       class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">
+        Edit Profil
+    </a>
+    
+        @if(!$employee->face_registered)
+            <a href="{{ route('admin.employees.register-face', $employee) }}" 
+            class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium inline-flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                </svg>
+                Registrasi Wajah
+            </a>
+        @else
+            <a href="{{ route('admin.employees.register-face', $employee) }}" 
+            class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium inline-flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                </svg>
+                Update Wajah
+            </a>
+        @endif
+    </div>
+
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                         <div>
                             <label class="text-gray-500 font-medium">NIP</label>
