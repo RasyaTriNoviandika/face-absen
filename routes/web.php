@@ -15,13 +15,22 @@ Route::get('/', function () {
     return view('index');
 })->name('home');
 
-Route::get('/dashboard', function () {
-    return view('dashboard');
-})->middleware(['auth'])->name('dashboard');
-
-// Route Untuk User Attendance history
-Route::middleware('auth')->get('/user/attendance', [UserAttendanceController::class, 'index'])
-    ->name('user.attendance');
+// User Dashboard (Authenticated Users)
+Route::middleware(['auth'])->group(function () {
+    // Dashboard menggunakan view user/dashboard
+    Route::get('/dashboard', function () {
+        return view('user.dashboard');
+    })->name('dashboard');
+    
+    // User Attendance Routes
+    Route::get('/user/attendance', [UserAttendanceController::class, 'index'])
+        ->name('user.attendance');
+    
+    // Profile Routes
+    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+});
 
 // Face Recognition Public Routes
 Route::get('/attendance', function () {
@@ -38,21 +47,20 @@ Route::prefix('api/face')->group(function () {
 
 // Admin Routes
 Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(function () {
-
     // Redirect jika buka /admin
     Route::get('/', function () {
         return redirect()->route('admin.dashboard');
     });
-
-    //Regisiter face
-    Route::get('/employess/{employee}/register-face', [EmployeeController::class, 'registerFace'])
-        ->name('employees.registerFace');
 
     // Dashboard
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     // Employee Management
     Route::resource('employees', EmployeeController::class);
+    
+    // Register Face untuk Employee (FIXED TYPO)
+    Route::get('/employees/{employee}/register-face', [EmployeeController::class, 'registerFace'])
+        ->name('employees.register-face');
 
     // Attendance Management
     Route::resource('attendances', AttendanceController::class);
@@ -64,13 +72,6 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     // Settings
     Route::get('/settings', [SettingController::class, 'index'])->name('settings.index');
     Route::post('/settings', [SettingController::class, 'update'])->name('settings.update');
-});
-
-// Authenticated User Routes
-Route::middleware('auth')->group(function () {
-    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
 require __DIR__.'/auth.php';

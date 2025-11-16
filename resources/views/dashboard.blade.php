@@ -102,6 +102,33 @@
 
         <!-- Quick Stats -->
         @if(auth()->user()->employee)
+        @php
+            $startOfMonth = now()->startOfMonth();
+            $endOfMonth = now()->endOfMonth();
+            $employee = auth()->user()->employee;
+            
+            // Hitung statistik real dari database
+            $totalHadir = $employee->attendances()
+                ->whereBetween('date', [$startOfMonth, $endOfMonth])
+                ->whereIn('status', ['hadir', 'terlambat'])
+                ->count();
+            
+            $totalTerlambat = $employee->attendances()
+                ->whereBetween('date', [$startOfMonth, $endOfMonth])
+                ->where('status', 'terlambat')
+                ->count();
+            
+            $totalIzin = $employee->attendances()
+                ->whereBetween('date', [$startOfMonth, $endOfMonth])
+                ->whereIn('status', ['izin', 'sakit'])
+                ->count();
+            
+            $totalAlfa = $employee->attendances()
+                ->whereBetween('date', [$startOfMonth, $endOfMonth])
+                ->where('status', 'alfa')
+                ->count();
+        @endphp
+        
         <div class="mt-12">
             <h2 class="text-2xl font-bold mb-6 text-gray-800">Statistik Bulan Ini</h2>
             <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -109,7 +136,7 @@
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-gray-500 text-sm mb-1">Total Hadir</p>
-                            <p class="text-3xl font-bold text-green-600">0</p>
+                            <p class="text-3xl font-bold text-green-600">{{ $totalHadir }}</p>
                         </div>
                         <div class="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
                             <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -123,7 +150,7 @@
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-gray-500 text-sm mb-1">Terlambat</p>
-                            <p class="text-3xl font-bold text-yellow-600">0</p>
+                            <p class="text-3xl font-bold text-yellow-600">{{ $totalTerlambat }}</p>
                         </div>
                         <div class="w-12 h-12 bg-yellow-100 rounded-xl flex items-center justify-center">
                             <svg class="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -136,8 +163,8 @@
                 <div class="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
                     <div class="flex items-center justify-between">
                         <div>
-                            <p class="text-gray-500 text-sm mb-1">Izin</p>
-                            <p class="text-3xl font-bold text-blue-600">0</p>
+                            <p class="text-gray-500 text-sm mb-1">Izin/Sakit</p>
+                            <p class="text-3xl font-bold text-blue-600">{{ $totalIzin }}</p>
                         </div>
                         <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
                             <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -151,7 +178,7 @@
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-gray-500 text-sm mb-1">Alfa</p>
-                            <p class="text-3xl font-bold text-red-600">0</p>
+                            <p class="text-3xl font-bold text-red-600">{{ $totalAlfa }}</p>
                         </div>
                         <div class="w-12 h-12 bg-red-100 rounded-xl flex items-center justify-center">
                             <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">

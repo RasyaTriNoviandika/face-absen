@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Auth;
 
 class UserAttendanceController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         $user = Auth::user();
         
@@ -17,7 +17,15 @@ class UserAttendanceController extends Controller
                 ->with('error', 'Akun Anda belum terhubung dengan data karyawan.');
         }
 
+        // Filter by month and year
+        $month = $request->input('month', now()->month);
+        $year = $request->input('year', now()->year);
+        
+        $startDate = \Carbon\Carbon::create($year, $month, 1)->startOfMonth();
+        $endDate = $startDate->copy()->endOfMonth();
+
         $attendances = $user->employee->attendances()
+            ->whereBetween('date', [$startDate, $endDate])
             ->latest('date')
             ->latest('check_in')
             ->paginate(20);
