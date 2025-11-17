@@ -73,6 +73,12 @@
                 </div>
             </div>
 
+            <!-- Debug Info (Untuk Development) -->
+            <div id="debug-info" class="bg-black/30 backdrop-blur-lg rounded-2xl p-4 mb-4 border border-white/10 text-white text-xs font-mono hidden">
+                <div class="font-bold mb-2">Debug Info:</div>
+                <div id="debug-content"></div>
+            </div>
+
             <!-- Loading State -->
             <div id="loading" class="bg-white/10 backdrop-blur-lg rounded-3xl shadow-2xl p-12 border border-white/20">
                 <div class="flex flex-col items-center justify-center">
@@ -197,51 +203,83 @@
     </div>
 
     <script>
+    // Global variables
     let videoEl, canvasEl, statusEl, checkInBtn, checkOutBtn;
     let currentEmployee = null;
     let labeledDescriptors = [];
     let recognitionInterval = null;
     let modelsLoaded = false;
+    let isProcessing = false;
 
+    // Configuration
+    const CONFIG = {
+        FACE_MATCH_THRESHOLD: 0.65,  // Lebih fleksibel (semakin tinggi, semakin longgar)
+        MIN_CONFIDENCE: 0.5,
+        RECOGNITION_INTERVAL: 500,
+        DEBUG_MODE: true  // Set false untuk production
+    };
+
+    // Debug helper
+    function debugLog(message, data = null) {
+        if (CONFIG.DEBUG_MODE) {
+            console.log(`[FaceAttend] ${message}`, data || '');
+            updateDebugInfo(message, data);
+        }
+    }
+
+    function updateDebugInfo(message, data) {
+        const debugInfo = document.getElementById('debug-info');
+        const debugContent = document.getElementById('debug-content');
+        if (debugInfo && debugContent) {
+            debugInfo.classList.remove('hidden');
+            const time = new Date().toLocaleTimeString();
+            const dataStr = data ? JSON.stringify(data, null, 2) : '';
+            debugContent.innerHTML = `<div>[${time}] ${message}</div>${dataStr ? `<pre>${dataStr}</pre>` : ''}` + debugContent.innerHTML;
+            
+            // Keep only last 10 messages
+            const children = debugContent.children;
+            while (children.length > 10) {
+                debugContent.removeChild(children[children.length - 1]);
+            }
+        }
+    }
+
+    // Initialize
     document.addEventListener('DOMContentLoaded', async () => {
+        debugLog('Application starting...');
+        
         videoEl = document.getElementById('video');
         canvasEl = document.getElementById('overlay');
         statusEl = document.getElementById('status');
         checkInBtn = document.getElementById('checkInBtn');
         checkOutBtn = document.getElementById('checkOutBtn');
 
-        console.log('Starting face recognition system...');
-
         try {
+            debugLog('Step 1: Loading AI models...');
             await loadModels();
-            console.log('Models loaded successfully');
+            debugLog('✓ Models loaded successfully');
             
+            debugLog('Step 2: Loading registered faces...');
             await loadRegisteredFaces();
-            console.log('Registered faces loaded:', labeledDescriptors.length);
+            debugLog('✓ Registered faces loaded', { count: labeledDescriptors.length });
             
+            debugLog('Step 3: Starting camera...');
             await startCamera();
-            console.log('Camera started');
+            debugLog('✓ Camera started');
             
+            // Hide loading, show camera
             document.getElementById('loading').classList.add('hidden');
             document.getElementById('camera-container').classList.remove('hidden');
             
-            // Start recognition
+            debugLog('Step 4: Starting face recognition...');
             startFaceRecognition();
+            debugLog('✓ System ready!');
             
         } catch (error) {
+            debugLog('❌ Initialization error', error);
             console.error('Initialization Error:', error);
             showNotification('error', 'Gagal memulai sistem: ' + error.message);
-            document.getElementById('loading').innerHTML = `
-                <div class="text-center">
-                    <svg class="mx-auto h-12 w-12 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
-                    <p class="mt-4 text-white text-lg font-semibold">Error: ${error.message}</p>
-                    <button onclick="location.reload()" class="mt-4 px-6 py-2 bg-white text-indigo-600 rounded-lg hover:bg-gray-100 transition-colors">
-                        Coba Lagi
-                    </button>
-                </div>
-            `;
+            showErrorScreen(error.message);
         }
     });
 
@@ -255,9 +293,7 @@
                 faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
             ]);
             modelsLoaded = true;
-            console.log('All models loaded');
         } catch (error) {
-            console.error('Model loading error:', error);
             throw new Error('Gagal memuat AI models. Periksa koneksi internet Anda.');
         }
     }
@@ -271,22 +307,78 @@
             }
             
             const data = await response.json();
-            console.log('Fetched registered faces:', data);
+            debugLog('Raw API response', { 
+                count: data.length, 
+                sample: data[0] 
+            });
             
             if (!Array.isArray(data) || data.length === 0) {
-                console.warn('No registered faces found');
+                debugLog('⚠️ No registered faces found in database');
                 updateStatus('no-faces');
+                labeledDescriptors = [];
                 return;
             }
             
-            labeledDescriptors = data.map(item => {
-                const descriptors = [new Float32Array(item.descriptor)];
-                return new faceapi.LabeledFaceDescriptors(item.employee_nip, descriptors);
-            });
+            // Process descriptors with better error handling
+            const processedDescriptors = [];
             
-            console.log('Labeled descriptors created:', labeledDescriptors.length);
+            for (const item of data) {
+                try {
+                    let desc = item.descriptor;
+                    
+                    // Handle string format
+                    if (typeof desc === 'string') {
+                        try {
+                            desc = JSON.parse(desc);
+                        } catch (e) {
+                            debugLog(`⚠️ Failed to parse descriptor for ${item.employee_nip}`, e);
+                            continue;
+                        }
+                    }
+                    
+                    // Validate array
+                    if (!Array.isArray(desc)) {
+                        debugLog(`⚠️ Descriptor is not an array for ${item.employee_nip}`);
+                        continue;
+                    }
+                    
+                    // Validate length (face-api descriptor should be 128 dimensions)
+                    if (desc.length !== 128) {
+                        debugLog(`⚠️ Invalid descriptor length for ${item.employee_nip}`, { length: desc.length });
+                        continue;
+                    }
+                    
+                    // Convert to Float32Array
+                    const floatDesc = new Float32Array(desc.map(v => parseFloat(v)));
+                    
+                    // Check for NaN values
+                    if (floatDesc.some(v => isNaN(v))) {
+                        debugLog(`⚠️ Descriptor contains NaN for ${item.employee_nip}`);
+                        continue;
+                    }
+                    
+                    const labeled = new faceapi.LabeledFaceDescriptors(
+                        String(item.employee_nip), 
+                        [floatDesc]
+                    );
+                    
+                    processedDescriptors.push(labeled);
+                    debugLog(`✓ Processed descriptor for ${item.employee_nip} (${item.employee_name})`);
+                    
+                } catch (error) {
+                    debugLog(`❌ Error processing ${item.employee_nip}`, error);
+                }
+            }
+            
+            labeledDescriptors = processedDescriptors;
+            debugLog('Total valid descriptors loaded', { count: labeledDescriptors.length });
+            
+            if (labeledDescriptors.length === 0) {
+                updateStatus('no-faces');
+            }
+            
         } catch (error) {
-            console.error('Error loading registered faces:', error);
+            debugLog('❌ Error loading registered faces', error);
             throw new Error('Gagal memuat data wajah terdaftar: ' + error.message);
         }
     }
@@ -308,7 +400,10 @@
                     videoEl.play();
                     canvasEl.width = videoEl.videoWidth;
                     canvasEl.height = videoEl.videoHeight;
-                    console.log('Video dimensions:', videoEl.videoWidth, 'x', videoEl.videoHeight);
+                    debugLog('Video dimensions', { 
+                        width: videoEl.videoWidth, 
+                        height: videoEl.videoHeight 
+                    });
                     resolve();
                 };
                 
@@ -316,7 +411,6 @@
                     reject(new Error('Gagal memuat video dari kamera'));
                 };
                 
-                // Timeout jika video tidak load dalam 10 detik
                 setTimeout(() => {
                     if (videoEl.readyState < 2) {
                         reject(new Error('Kamera timeout. Pastikan kamera tidak digunakan aplikasi lain.'));
@@ -324,7 +418,6 @@
                 }, 10000);
             });
         } catch (error) {
-            console.error('Camera error:', error);
             if (error.name === 'NotAllowedError') {
                 throw new Error('Akses kamera ditolak. Izinkan akses kamera di browser Anda.');
             } else if (error.name === 'NotFoundError') {
@@ -340,85 +433,126 @@
             clearInterval(recognitionInterval);
         }
         
-        console.log('Starting face recognition loop...');
+        debugLog('Starting recognition loop', { interval: CONFIG.RECOGNITION_INTERVAL });
         recognitionInterval = setInterval(async () => {
             await detectAndRecognizeFace();
-        }, 500);
+        }, CONFIG.RECOGNITION_INTERVAL);
     }
 
     async function detectAndRecognizeFace() {
-        if (!modelsLoaded || videoEl.readyState !== 4) {
+        if (!modelsLoaded) {
+            debugLog('Models not loaded yet');
+            return;
+        }
+        
+        if (videoEl.readyState !== 4) {
+            debugLog('Video not ready', { readyState: videoEl.readyState });
             return;
         }
 
+        if (isProcessing) {
+            return; // Skip if already processing
+        }
+
         try {
+            isProcessing = true;
+            
             const detections = await faceapi
-                .detectAllFaces(videoEl, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 }))
+                .detectAllFaces(videoEl, new faceapi.SsdMobilenetv1Options({ 
+                    minConfidence: CONFIG.MIN_CONFIDENCE 
+                }))
                 .withFaceLandmarks()
                 .withFaceDescriptors();
 
             const ctx = canvasEl.getContext('2d');
             ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
 
+            // No face detected
             if (detections.length === 0) {
                 updateStatus('searching');
                 currentEmployee = null;
-                checkInBtn.disabled = true;
-                checkOutBtn.disabled = true;
+                disableButtons();
                 return;
             }
 
-            // Check if faces are registered
+            debugLog('Faces detected', { count: detections.length });
+
+            // No registered faces
             if (labeledDescriptors.length === 0) {
                 updateStatus('no-faces');
                 currentEmployee = null;
-                checkInBtn.disabled = true;
-                checkOutBtn.disabled = true;
+                disableButtons();
                 return;
             }
 
-            const faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.6);
+            // Match faces
+            const faceMatcher = new faceapi.FaceMatcher(
+                labeledDescriptors, 
+                CONFIG.FACE_MATCH_THRESHOLD
+            );
+            
             const resizedDetections = faceapi.resizeResults(detections, {
                 width: canvasEl.width,
                 height: canvasEl.height
             });
             
-            const results = resizedDetections.map(d => faceMatcher.findBestMatch(d.descriptor));
+            const results = resizedDetections.map(d => {
+                const match = faceMatcher.findBestMatch(d.descriptor);
+                debugLog('Face match result', {
+                    label: match.label,
+                    distance: match.distance.toFixed(3),
+                    threshold: CONFIG.FACE_MATCH_THRESHOLD
+                });
+                return match;
+            });
 
-            // Draw detections
+            // Draw all detections
             resizedDetections.forEach((detection, i) => {
                 const box = detection.detection.box;
+                const match = results[i];
+                const isRecognized = match.label !== 'unknown';
+                
                 const drawBox = new faceapi.draw.DrawBox(box, {
-                    label: results[i].toString(),
-                    boxColor: results[i].label === 'unknown' ? '#ef4444' : '#10b981',
-                    lineWidth: 2
+                    label: isRecognized ? `${match.label} (${(1 - match.distance).toFixed(2)})` : 'Unknown',
+                    boxColor: isRecognized ? '#10b981' : '#ef4444',
+                    lineWidth: 3
                 });
                 drawBox.draw(canvasEl);
             });
 
-            // Check first match
+            // Handle best match
             const bestMatch = results[0];
-            if (bestMatch.label !== 'unknown' && bestMatch.distance < 0.6) {
+            
+            if (bestMatch.label !== 'unknown') {
+                debugLog('Face recognized!', { 
+                    nip: bestMatch.label,
+                    confidence: (1 - bestMatch.distance).toFixed(3)
+                });
+                
                 const employee = await getEmployeeByNIP(bestMatch.label);
+                
                 if (employee) {
                     currentEmployee = employee;
                     updateStatus('recognized', employee.employee_name);
-                    checkInBtn.disabled = false;
-                    checkOutBtn.disabled = false;
+                    enableButtons();
+                    debugLog('Employee loaded', currentEmployee);
                 } else {
+                    debugLog('⚠️ Employee not found in database', { nip: bestMatch.label });
                     updateStatus('unknown');
                     currentEmployee = null;
-                    checkInBtn.disabled = true;
-                    checkOutBtn.disabled = true;
+                    disableButtons();
                 }
             } else {
                 updateStatus('unknown');
                 currentEmployee = null;
-                checkInBtn.disabled = true;
-                checkOutBtn.disabled = true;
+                disableButtons();
             }
+            
         } catch (error) {
+            debugLog('❌ Recognition error', error);
             console.error('Recognition error:', error);
+        } finally {
+            isProcessing = false;
         }
     }
 
@@ -447,13 +581,24 @@
         statusEl.innerHTML = `<div class="flex items-center space-x-2">${status.html}</div>`;
     }
 
+    function enableButtons() {
+        checkInBtn.disabled = false;
+        checkOutBtn.disabled = false;
+    }
+
+    function disableButtons() {
+        checkInBtn.disabled = true;
+        checkOutBtn.disabled = true;
+    }
+
     async function getEmployeeByNIP(nip) {
         try {
             const response = await fetch('/api/face/registered');
             const data = await response.json();
-            return data.find(emp => emp.employee_nip === nip);
+            const employee = data.find(emp => String(emp.employee_nip) === String(nip));
+            return employee || null;
         } catch (error) {
-            console.error('Error getting employee:', error);
+            debugLog('❌ Error getting employee', error);
             return null;
         }
     }
@@ -463,7 +608,7 @@
         canvas.width = videoEl.videoWidth;
         canvas.height = videoEl.videoHeight;
         canvas.getContext('2d').drawImage(videoEl, 0, 0);
-        return canvas.toDataURL('image/png');
+        return canvas.toDataURL('image/jpeg', 0.8);
     }
 
     function showNotification(type, message, data = null) {
@@ -487,7 +632,7 @@
                         <p class="text-white font-bold text-xl mb-2">${message}</p>
                         ${data ? `
                             <div class="space-y-1 text-white/80">
-                                <p>Waktu: ${data.time}</p>
+                                <p>Waktu: ${data.time || data.check_in_time || data.check_out_time || '-'}</p>
                                 <p>Status: ${data.status || data.attendance?.status || '-'}</p>
                             </div>
                         ` : ''}
@@ -501,6 +646,22 @@
         }, 5000);
     }
 
+    function showErrorScreen(message) {
+        document.getElementById('loading').innerHTML = `
+            <div class="text-center">
+                <svg class="mx-auto h-16 w-16 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <h3 class="mt-4 text-2xl font-bold text-white">Error Initialization</h3>
+                <p class="mt-2 text-white/80 text-lg">${message}</p>
+                <button onclick="location.reload()" class="mt-6 px-8 py-3 bg-white text-indigo-600 rounded-xl hover:bg-gray-100 transition-colors font-semibold">
+                    Coba Lagi
+                </button>
+            </div>
+        `;
+    }
+
+    // Check-in handler
     checkInBtn.addEventListener('click', async () => {
         if (!currentEmployee) {
             showNotification('error', 'Tidak ada wajah yang terdeteksi');
@@ -509,7 +670,9 @@
         
         checkInBtn.disabled = true;
         const originalText = checkInBtn.innerHTML;
-        checkInBtn.innerHTML = '<span class="animate-pulse">Memproses...</span>';
+        checkInBtn.innerHTML = '<span class="animate-pulse">Memproses Check-in...</span>';
+        
+        debugLog('Processing check-in', { employee: currentEmployee.employee_name });
 
         try {
             const photo = capturePhoto();
@@ -526,21 +689,28 @@
             });
 
             const result = await response.json();
+            debugLog('Check-in response', result);
             
             if (result.success) {
                 showNotification('success', `Check-in berhasil! Selamat bekerja, ${currentEmployee.employee_name}`, result.data);
+                debugLog('✓ Check-in successful');
             } else {
                 showNotification('error', result.message || 'Check-in gagal');
+                debugLog('❌ Check-in failed', result);
             }
         } catch (error) {
+            debugLog('❌ Check-in error', error);
             console.error('Check-in error:', error);
             showNotification('error', 'Terjadi kesalahan: ' + error.message);
         } finally {
             checkInBtn.innerHTML = originalText;
-            checkInBtn.disabled = false;
+            setTimeout(() => {
+                checkInBtn.disabled = false;
+            }, 1000);
         }
     });
 
+    // Check-out handler
     checkOutBtn.addEventListener('click', async () => {
         if (!currentEmployee) {
             showNotification('error', 'Tidak ada wajah yang terdeteksi');
@@ -549,7 +719,9 @@
         
         checkOutBtn.disabled = true;
         const originalText = checkOutBtn.innerHTML;
-        checkOutBtn.innerHTML = '<span class="animate-pulse">Memproses...</span>';
+        checkOutBtn.innerHTML = '<span class="animate-pulse">Memproses Check-out...</span>';
+        
+        debugLog('Processing check-out', { employee: currentEmployee.employee_name });
 
         try {
             const photo = capturePhoto();
@@ -566,23 +738,30 @@
             });
 
             const result = await response.json();
+            debugLog('Check-out response', result);
             
             if (result.success) {
                 showNotification('success', `Check-out berhasil! Terima kasih, ${currentEmployee.employee_name}`, result.data);
+                debugLog('✓ Check-out successful');
             } else {
                 showNotification('error', result.message || 'Check-out gagal');
+                debugLog('❌ Check-out failed', result);
             }
         } catch (error) {
+            debugLog('❌ Check-out error', error);
             console.error('Check-out error:', error);
             showNotification('error', 'Terjadi kesalahan: ' + error.message);
         } finally {
             checkOutBtn.innerHTML = originalText;
-            checkOutBtn.disabled = false;
+            setTimeout(() => {
+                checkOutBtn.disabled = false;
+            }, 1000);
         }
     });
 
     // Cleanup on page unload
     window.addEventListener('beforeunload', () => {
+        debugLog('Cleaning up...');
         if (recognitionInterval) {
             clearInterval(recognitionInterval);
         }
