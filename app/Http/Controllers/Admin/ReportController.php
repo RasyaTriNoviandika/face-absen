@@ -102,44 +102,42 @@ class ReportController extends Controller
     }
 
     private function exportCsv($attendances, $startDate, $endDate)
-    {
-        $filename = "attendance-report-{$startDate}-to-{$endDate}.csv";
+{
+    $filename = "attendance-report-{$startDate}-to-{$endDate}.csv";
+    
+    return response()->streamDownload(function() use ($attendances) {
+        $file = fopen('php://output', 'w');
         
-        $headers = [
-            'Content-Type' => 'text/csv',
-            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
-        ];
-
-        $callback = function() use ($attendances) {
-            $file = fopen('php://output', 'w');
-            
-            // Header
-            fputcsv($file, ['Tanggal', 'NIP', 'Nama', 'Departemen', 'Check In', 'Check Out', 'Status', 'Catatan']);
-            
-            // Data
-            foreach ($attendances as $attendance) {
-                fputcsv($file, [
-                    $attendance->date->format('Y-m-d'),
-                    $attendance->employee->nip,
-                    $attendance->employee->name,
-                    $attendance->employee->department,
-                    $attendance->check_in,
-                    $attendance->check_out ?? '-',
-                    ucfirst($attendance->status),
-                    $attendance->notes ?? '-',
-                ]);
-            }
-            
-            fclose($file);
-        };
-
-        return response()->stream($callback, 200, $headers);
-    }
+        // Add BOM for UTF-8
+        fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF));
+        
+        // Header
+        fputcsv($file, ['Tanggal', 'NIP', 'Nama', 'Departemen', 'Check In', 'Check Out', 'Status', 'Catatan']);
+        
+        // Data with null safety
+        foreach ($attendances as $attendance) {
+            fputcsv($file, [
+                $attendance->date->format('Y-m-d'),
+                $attendance->employee->nip ?? '-',
+                $attendance->employee->name ?? '-',
+                $attendance->employee->department ?? '-',
+                $attendance->check_in ?? '-',
+                $attendance->check_out ?? '-',
+                ucfirst($attendance->status ?? '-'),
+                $attendance->notes ?? '-',
+            ]);
+        }
+        
+        fclose($file);
+    }, $filename, [
+        'Content-Type' => 'text/csv',
+        'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+    ]);
+}
 
     private function exportExcel($attendances, $startDate, $endDate)
     {
         // Implementasi export Excel menggunakan PhpSpreadsheet
-        // Untuk simplicity, menggunakan CSV dengan extension .xlsx
         $filename = "attendance-report-{$startDate}-to-{$endDate}.xlsx";
         
         $headers = [

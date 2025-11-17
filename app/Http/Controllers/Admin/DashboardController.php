@@ -1,11 +1,11 @@
 <?php
-
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Employee;
 use App\Models\Attendance;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
 {
@@ -13,6 +13,7 @@ class DashboardController extends Controller
     {
         $today = Carbon::today();
         
+        // Gunakan query yang lebih efisien
         $stats = [
             'total_employees' => Employee::where('is_active', true)->count(),
             'present_today' => Attendance::whereDate('date', $today)
@@ -21,11 +22,14 @@ class DashboardController extends Controller
             'late_today' => Attendance::whereDate('date', $today)
                 ->where('status', 'terlambat')
                 ->count(),
-            'absent_today' => Employee::where('is_active', true)->count() - 
-                Attendance::whereDate('date', $today)->count(),
         ];
+        
+        // Calculate absent using existing data
+        $stats['absent_today'] = $stats['total_employees'] - 
+            Attendance::whereDate('date', $today)->distinct('employee_id')->count();
 
-        $recent_attendances = Attendance::with('employee')
+        // Eager loading untuk menghindari N+1 query
+        $recent_attendances = Attendance::with('employee:id,name,nip,photo,department')
             ->whereDate('date', $today)
             ->latest('check_in')
             ->limit(10)

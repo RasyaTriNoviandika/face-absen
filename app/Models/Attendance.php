@@ -1,5 +1,4 @@
 <?php
-
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -34,12 +33,16 @@ class Attendance extends Model
     {
         if (!$this->check_in) return false;
         
-        $workStartTime = Setting::where('key', 'work_start_time')->first()->value;
-        $lateTolerance = Setting::where('key', 'late_tolerance_minutes')->first()->value;
-        
-        $startTime = Carbon::parse($workStartTime)->addMinutes($lateTolerance);
-        $checkIn = Carbon::parse($this->check_in);
-        
-        return $checkIn->greaterThan($startTime);
+        try {
+            $workStartTime = Setting::get('work_start_time', '08:00:00');
+            $lateTolerance = (int) Setting::get('late_tolerance_minutes', 15);
+            
+            $startTime = Carbon::parse($workStartTime)->addMinutes($lateTolerance);
+            $checkIn = Carbon::parse($this->check_in);
+            
+            return $checkIn->greaterThan($startTime);
+        } catch (\Exception $e) {
+            return false;
+        }
     }
 }

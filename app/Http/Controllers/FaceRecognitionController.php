@@ -158,119 +158,130 @@ class FaceRecognitionController extends Controller
      * Check-in attendance dengan validasi
      */
     public function checkIn(Request $request)
-    {
-        try {
-            $validator = Validator::make($request->all(), [
-                'employee_id' => 'required|exists:employees,id',
-                'photo' => 'required|string|regex:/^data:image\/(png|jpeg|jpg);base64,/',
-            ]);
+{
+    try {
+        // VALIDASI INPUT
+        $validator = Validator::make($request->all(), [
+            'employee_id' => 'required|exists:employees,id',
+            'photo' => [
+                'required', 
+                'string',
+                'regex:/^data:image\/(png|jpeg|jpg);base64,/',
+                function ($attribute, $value, $fail) {
+                    // Validate base64 size (max 5MB)
+                    $parts = explode(',', $value);
+                    if (count($parts) !== 2) {
+                        return $fail('Format foto tidak valid.');
+                    }
 
-            if ($validator->fails()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Data tidak valid',
-                    'errors' => $validator->errors(),
-                ], 422);
-            }
+                    $decoded = base64_decode($parts[1], true);
+                    if ($decoded === false) {
+                        return $fail('Foto tidak dapat didecode.');
+                    }
 
-            $employee = Employee::findOrFail($request->employee_id);
-            
-            // Check if employee is active
-            if (!$employee->is_active) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Karyawan tidak aktif',
-                ], 403);
-            }
+                    if (strlen($decoded) > 5242880) { // 5MB
+                        return $fail('Ukuran foto terlalu besar (maksimal 5MB).');
+                    }
+                }
+            ]
+        ]);
 
-            $today = Carbon::today();
-
-            // Check if already checked in
-            $attendance = Attendance::where('employee_id', $employee->id)
-                ->whereDate('date', $today)
-                ->first();
-
-            if ($attendance && $attendance->check_in) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Anda sudah melakukan check-in hari ini pada ' . $attendance->check_in,
-                ], 400);
-            }
-
-            // Validate and save photo
-            if (!preg_match('/^data:image\/(png|jpeg|jpg);base64,(.+)$/', $request->photo, $matches)) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Format foto tidak valid',
-                ], 422);
-            }
-
-            $imageData = base64_decode($matches[2]);
-            
-            if (strlen($imageData) > self::MAX_PHOTO_SIZE) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Ukuran foto terlalu besar',
-                ], 422);
-            }
-
-            // Generate secure filename
-            $photoName = 'attendance/' . $employee->nip . '_in_' . now()->format('YmdHis') . '_' . uniqid() . '.png';
-            Storage::disk('public')->put($photoName, $imageData);
-
-            // Determine status (late or on time)
-            $workStartTime = Setting::get('work_start_time', '08:00:00');
-            $lateTolerance = (int) Setting::get('late_tolerance_minutes', 15);
-            $startTime = Carbon::parse($workStartTime)->addMinutes($lateTolerance);
-            $now = Carbon::now();
-            $status = $now->greaterThan($startTime) ? 'terlambat' : 'hadir';
-
-            // Create or update attendance
-            $attendance = Attendance::updateOrCreate(
-                [
-                    'employee_id' => $employee->id,
-                    'date' => $today,
-                ],
-                [
-                    'check_in' => $now->format('H:i:s'),
-                    'status' => $status,
-                    'check_in_photo' => $photoName,
-                ]
-            );
-
-            Log::info('Check-in recorded', [
-                'employee_id' => $employee->id,
-                'employee_name' => $employee->name,
-                'status' => $status,
-                'time' => $now->format('H:i:s'),
-            ]);
-
-            return response()->json([
-                'success' => true,
-                'message' => $status === 'hadir' ? 
-                    'Check-in berhasil! Selamat bekerja.' : 
-                    'Check-in berhasil, namun Anda terlambat.',
-                'data' => [
-                    'employee' => $employee->only(['id', 'name', 'nip', 'department']),
-                    'attendance' => $attendance->only(['date', 'check_in', 'status']),
-                    'status' => $status,
-                    'time' => $now->format('H:i:s'),
-                ],
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('Check-in error', [
-                'employee_id' => $request->employee_id ?? null,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-            ]);
-
+        if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Terjadi kesalahan saat check-in',
-            ], 500);
+                'message' => 'Data tidak valid',
+                'errors' => $validator->errors(),
+            ], 422);
         }
+
+        // CEK KARYAWAN
+        $employee = Employee::findOrFail($request->employee_id);
+
+        if (!$employee->is_active) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Karyawan tidak aktif',
+            ], 403);
+        }
+
+        $today = Carbon::today();
+
+        // CEK SUDAH CHECK-IN
+        $attendance = Attendance::where('employee_id', $employee->id)
+            ->whereDate('date', $today)
+            ->first();
+
+        if ($attendance && $attendance->check_in) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Anda sudah check-in hari ini pada ' . $attendance->check_in,
+            ], 400);
+        }
+
+        // PROSES FOTO
+        preg_match('/^data:image\/(png|jpeg|jpg);base64,(.+)$/', $request->photo, $matches);
+
+        $imageData = base64_decode($matches[2]);
+
+        // Simpan foto
+        $photoName = 'attendance/' . $employee->nip . '_in_' . now()->format('YmdHis') . '_' . uniqid() . '.png';
+        Storage::disk('public')->put($photoName, $imageData);
+
+        // HITUNG STATUS
+        $workStartTime = Setting::get('work_start_time', '08:00:00');
+        $lateTolerance = (int) Setting::get('late_tolerance_minutes', 15);
+        $deadline = Carbon::parse($workStartTime)->addMinutes($lateTolerance);
+
+        $now = Carbon::now();
+        $status = $now->greaterThan($deadline) ? 'terlambat' : 'hadir';
+
+        // SIMPAN ATTENDANCE
+        $attendance = Attendance::updateOrCreate(
+            [
+                'employee_id' => $employee->id,
+                'date' => $today,
+            ],
+            [
+                'check_in' => $now->format('H:i:s'),
+                'status' => $status,
+                'check_in_photo' => $photoName,
+            ]
+        );
+
+        // LOG
+        Log::info('Check-in recorded', [
+            'employee_id' => $employee->id,
+            'employee_name' => $employee->name,
+            'status' => $status,
+            'time' => $now->format('H:i:s'),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => $status == 'hadir' 
+                ? 'Check-in berhasil! Selamat bekerja.' 
+                : 'Check-in berhasil, namun Anda terlambat.',
+            'data' => [
+                'employee' => $employee->only(['id', 'name', 'nip', 'department']),
+                'attendance' => $attendance->only(['date', 'check_in', 'status']),
+                'status' => $status,
+                'time' => $now->format('H:i:s'),
+            ],
+        ]);
+
+    } catch (\Exception $e) {
+        Log::error('Check-in error', [
+            'employee_id' => $request->employee_id ?? null,
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString(),
+        ]);
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Terjadi kesalahan saat check-in',
+        ], 500);
     }
+}
 
     /**
      * Check-out attendance dengan validasi
