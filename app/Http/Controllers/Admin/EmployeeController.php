@@ -4,20 +4,31 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Employee;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
 
 class EmployeeController extends Controller
 {
     public function index()
     {
-        $employees = Employee::latest()->paginate(10);
+        $employees = Employee::with('user')
+            ->latest()
+            ->paginate(10);
+        
         return view('admin.employees.index', compact('employees'));
     }
 
     public function create()
     {
-        return view('admin.employees.create');
+        // Get users yang belum terhubung dengan employee
+        $availableUsers = User::whereNull('employee_id')
+            ->where('role', 'user')
+            ->where('is_active', true)
+            ->get();
+        
+        return view('admin.employees.create', compact('availableUsers'));
     }
 
     public function store(Request $request)
@@ -30,22 +41,50 @@ class EmployeeController extends Controller
             'department' => 'required|string',
             'position' => 'nullable|string',
             'photo' => 'nullable|image|max:2048',
+            'user_id' => 'nullable|exists:users,id', // Link ke user
         ]);
 
-        if ($request->hasFile('photo')) {
-            $validated['photo'] = $request->file('photo')->store('employees', 'public');
+        DB::beginTransaction();
+        try {
+            // Upload photo
+            if ($request->hasFile('photo')) {
+                $validated['photo'] = $request->file('photo')->store('employees', 'public');
+            }
+
+            // Create employee
+            $employee = Employee::create($validated);
+
+            // Link employee ke user jika dipilih
+            if ($request->filled('user_id')) {
+                User::where('id', $request->user_id)
+                    ->update(['employee_id' => $employee->id]);
+            }
+
+            DB::commit();
+
+            return redirect()->route('admin.employees.index')
+                ->with('success', 'Karyawan berhasil ditambahkan');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            
+            // Delete uploaded photo if exists
+            if (isset($validated['photo'])) {
+                Storage::disk('public')->delete($validated['photo']);
+            }
+
+            return redirect()->back()
+                ->withInput()
+                ->with('error', 'Gagal menambahkan karyawan: ' . $e->getMessage());
         }
-
-        Employee::create($validated);
-
-        return redirect()->route('admin.employees.index')
-            ->with('success', 'Karyawan berhasil ditambahkan');
     }
 
     public function show(Employee $employee)
     {
+        $employee->load(['user', 'faceDescriptors']);
+        
         $attendances = $employee->attendances()
             ->latest('date')
+            ->latest('check_in')
             ->paginate(10);
             
         return view('admin.employees.show', compact('employee', 'attendances'));
@@ -53,7 +92,16 @@ class EmployeeController extends Controller
 
     public function edit(Employee $employee)
     {
-        return view('admin.employees.edit', compact('employee'));
+        // Get users yang belum terhubung ATAU user yang sudah terhubung dengan employee ini
+        $availableUsers = User::where(function($query) use ($employee) {
+                $query->whereNull('employee_id')
+                      ->orWhere('employee_id', $employee->id);
+            })
+            ->where('role', 'user')
+            ->where('is_active', true)
+            ->get();
+        
+        return view('admin.employees.edit', compact('employee', 'availableUsers'));
     }
 
     public function update(Request $request, Employee $employee)
@@ -67,35 +115,84 @@ class EmployeeController extends Controller
             'position' => 'nullable|string',
             'photo' => 'nullable|image|max:2048',
             'is_active' => 'boolean',
+            'user_id' => 'nullable|exists:users,id',
         ]);
 
-        if ($request->hasFile('photo')) {
-            // Delete old photo
-            if ($employee->photo) {
-                Storage::disk('public')->delete($employee->photo);
+        DB::beginTransaction();
+        try {
+            // Upload new photo
+            if ($request->hasFile('photo')) {
+                // Delete old photo
+                if ($employee->photo) {
+                    Storage::disk('public')->delete($employee->photo);
+                }
+                $validated['photo'] = $request->file('photo')->store('employees', 'public');
             }
-            $validated['photo'] = $request->file('photo')->store('employees', 'public');
+
+            // Update employee
+            $employee->update($validated);
+
+            // Update user link
+            // Reset old user link
+            User::where('employee_id', $employee->id)
+                ->update(['employee_id' => null]);
+
+            // Set new user link
+            if ($request->filled('user_id')) {
+                User::where('id', $request->user_id)
+                    ->update(['employee_id' => $employee->id]);
+            }
+
+            DB::commit();
+
+            return redirect()->route('admin.employees.index')
+                ->with('success', 'Karyawan berhasil diupdate');
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return redirect()->back()
+                ->withInput()
+                ->with('error', 'Gagal mengupdate karyawan: ' . $e->getMessage());
         }
-
-        $employee->update($validated);
-
-        return redirect()->route('admin.employees.index')
-            ->with('success', 'Karyawan berhasil diupdate');
     }
 
     public function destroy(Employee $employee)
     {
-        if ($employee->photo) {
-            Storage::disk('public')->delete($employee->photo);
-        }
-        
-        $employee->delete();
+        DB::beginTransaction();
+        try {
+            // Delete photo
+            if ($employee->photo) {
+                Storage::disk('public')->delete($employee->photo);
+            }
 
-        return redirect()->route('admin.employees.index')
-            ->with('success', 'Karyawan berhasil dihapus');
+            // Delete face descriptors dan foto
+            foreach ($employee->faceDescriptors as $descriptor) {
+                if ($descriptor->photo_path) {
+                    Storage::disk('public')->delete($descriptor->photo_path);
+                }
+                $descriptor->delete();
+            }
+
+            // Reset user link
+            User::where('employee_id', $employee->id)
+                ->update(['employee_id' => null]);
+            
+            // Delete employee
+            $employee->delete();
+
+            DB::commit();
+
+            return redirect()->route('admin.employees.index')
+                ->with('success', 'Karyawan berhasil dihapus');
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return redirect()->back()
+                ->with('error', 'Gagal menghapus karyawan: ' . $e->getMessage());
+        }
     }
 
-    // Tambahan: Method untuk halaman registrasi wajah
+    // Halaman registrasi wajah
     public function registerFace(Employee $employee)
     {
         return view('admin.employees.register-face', compact('employee'));

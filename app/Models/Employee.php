@@ -40,4 +40,8 @@ class Employee extends Model
     {
         return $this->hasOne(Attendance::class)->whereDate('date', today());
     }
+
+    public function user(){
+        return $this->belongsTo(User::class);
+    }
 }

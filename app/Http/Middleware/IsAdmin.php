@@ -10,6 +10,7 @@ class IsAdmin
 {
     public function handle(Request $request, Closure $next): Response
     {
+        // Cek apakah user sudah login
         if (!auth()->check()) {
             return redirect()->route('login')
                 ->with('error', 'Silakan login terlebih dahulu.');
@@ -17,12 +18,12 @@ class IsAdmin
 
         $user = auth()->user();
 
-        // Check if user is admin or superadmin
-        if (!$user->isAdmin()) {
+        // Cek apakah user adalah admin atau superadmin
+        if (!in_array($user->role, ['admin', 'superadmin'])) {
             abort(403, 'Akses ditolak. Anda tidak memiliki izin untuk mengakses halaman ini.');
         }
 
-        // Check if user is active
+        // Cek apakah user aktif
         if (!$user->is_active) {
             auth()->logout();
             return redirect()->route('login')

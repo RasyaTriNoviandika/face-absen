@@ -39,19 +39,31 @@ class User extends Authenticatable
         return $this->belongsTo(Employee::class);
     }
 
-    // Helper methods
-    public function isAdmin()
+    // Helper methods untuk role checking
+    public function isAdmin(): bool
     {
         return in_array($this->role, ['admin', 'superadmin']);
     }
 
-    public function isSuperAdmin()
+    public function isSuperAdmin(): bool
     {
         return $this->role === 'superadmin';
     }
 
-    public function isUser()
+    public function isUser(): bool
     {
         return $this->role === 'user';
+    }
+
+    // Cek apakah user terhubung dengan employee
+    public function hasEmployee(): bool
+    {
+        return !is_null($this->employee_id) && $this->employee !== null;
+    }
+
+    // Get employee name atau fallback ke user name
+    public function getEmployeeNameAttribute(): string
+    {
+        return $this->employee ? $this->employee->name : $this->name;
     }
 }
