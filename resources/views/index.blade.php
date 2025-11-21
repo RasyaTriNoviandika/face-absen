@@ -176,7 +176,7 @@
         </div>
     </section>
 
-    <!-- Footer -->
+    {{-- Footer --}}
     <footer class="py-8 px-6 border-t border-gray-100">
         <div class="max-w-6xl mx-auto text-center">
             <div class="flex items-center justify-center gap-2 mb-4">
