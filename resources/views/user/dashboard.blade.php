@@ -12,7 +12,7 @@
             <p class="text-gray-600">{{ now()->isoFormat('dddd, D MMMM Y') }}</p>
         </div>
 
-        @if(!auth()->user()->employee)
+        {{-- @if(!auth()->user()->employee)
         <!-- Warning - Clean -->
         <div class="bg-yellow-50 border-l-4 border-yellow-400 p-6 rounded-xl mb-6">
             <div class="flex items-start">
@@ -24,7 +24,7 @@
                     <p class="text-sm text-yellow-700">Akun Anda belum terhubung dengan data karyawan. Hubungi administrator untuk aktivasi.</p>
                 </div>
             </div>
-        </div>
+        </div> --}}
         @else
         
         <!-- Quick Actions - Card Simple -->

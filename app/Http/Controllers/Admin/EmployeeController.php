@@ -8,6 +8,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 
 class EmployeeController extends Controller
 {
@@ -41,7 +42,6 @@ class EmployeeController extends Controller
             'department' => 'required|string',
             'position' => 'nullable|string',
             'photo' => 'nullable|image|max:2048',
-            'user_id' => 'nullable|exists:users,id', // Link ke user
         ]);
 
         DB::beginTransaction();
@@ -54,20 +54,23 @@ class EmployeeController extends Controller
             // Create employee
             $employee = Employee::create($validated);
 
-            // Link employee ke user jika dipilih
-            if ($request->filled('user_id')) {
-                User::where('id', $request->user_id)
-                    ->update(['employee_id' => $employee->id]);
-            }
+            // ✅ TAMBAHKAN: Buat user otomatis untuk employee
+            $user = User::create([
+                'name' => $employee->name,
+                'email' => $employee->email,
+                'password' => Hash::make('password123'), // Password default
+                'role' => 'user',
+                'employee_id' => $employee->id,
+                'is_active' => true,
+            ]);
 
             DB::commit();
 
             return redirect()->route('admin.employees.index')
-                ->with('success', 'Karyawan berhasil ditambahkan');
+                ->with('success', 'Karyawan berhasil ditambahkan. Password default: password123');
         } catch (\Exception $e) {
             DB::rollBack();
             
-            // Delete uploaded photo if exists
             if (isset($validated['photo'])) {
                 Storage::disk('public')->delete($validated['photo']);
             }

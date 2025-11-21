@@ -89,6 +89,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById('camera-container').classList.remove('hidden');
         
         startFaceDetection();
+        
+        // ✅ TAMBAHKAN: Event listener untuk tombol register
+        registerBtn.addEventListener('click', handleRegister);
+        
     } catch (error) {
         console.error('Error:', error);
         showNotification('error', 'Gagal memulai kamera: ' + error.message);
@@ -183,7 +187,7 @@ function updateStatus(type) {
     };
     
     const status = statuses[type];
-    statusEl.className = `absolute top-4 right-4 px-4 py-2 rounded-lg font-semibold shadow-lg backdrop-blur-lg border-2 ${status.classes}`;
+    statusEl.className = `absolute top-4 right-4 px-4 py-2 rounded-lg font-semibold shadow-lg backdrop-blur-md border-2 ${status.classes}`;
     statusEl.innerHTML = `<div class="flex items-center space-x-2">${status.html}</div>`;
 }
 
@@ -225,7 +229,8 @@ function showNotification(type, message) {
     }
 }
 
-registerBtn.addEventListener('click', async () => {
+// ✅ PERBAIKAN UTAMA: Function handleRegister
+async function handleRegister() {
     if (!faceDetected || !currentDescriptor) {
         showNotification('error', 'Wajah tidak terdeteksi dengan jelas');
         return;
@@ -270,7 +275,7 @@ registerBtn.addEventListener('click', async () => {
         registerBtn.disabled = false;
         registerBtn.textContent = originalText;
     }
-});
+}
 
 window.addEventListener('beforeunload', () => {
     if (detectionInterval) clearInterval(detectionInterval);

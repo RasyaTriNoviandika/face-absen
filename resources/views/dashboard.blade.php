@@ -12,30 +12,42 @@
             <p class="text-gray-600">{{ now()->isoFormat('dddd, D MMMM Y') }}</p>
         </div>
 
-        @if(!auth()->user()->employee)
-        <!-- Warning - User Belum Terhubung -->
-        <div class="bg-yellow-50 border-l-4 border-yellow-400 p-6 rounded-xl mb-8 shadow-sm">
-            <div class="flex items-start">
-                <div class="flex-shrink-0">
-                    <svg class="w-6 h-6 text-yellow-400 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+    @if(!auth()->user()->employee)
+    <div class="bg-yellow-50 border-l-4 border-yellow-400 p-6 rounded-xl mb-6">
+        <div class="flex items-start">
+            <svg class="w-6 h-6 text-yellow-400 mr-3 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+            </svg>
+            <div>
+                <h3 class="text-sm font-bold text-yellow-800 mb-1">Akun Belum Terhubung</h3>
+                <p class="text-sm text-yellow-700 mb-3">
+                    Akun Anda belum terhubung dengan data karyawan. Untuk menggunakan fitur absensi wajah, silakan hubungi administrator.
+                </p>
+                <a href="mailto:admin@faceattend.com" class="inline-flex items-center px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors text-sm font-medium">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
                     </svg>
-                </div>
-                <div class="ml-4">
-                    <h3 class="text-sm font-bold text-yellow-800 mb-1">Akun Belum Terhubung</h3>
-                    <p class="text-sm text-yellow-700 mb-3">
-                        Akun Anda belum terhubung dengan data karyawan. Untuk menggunakan fitur absensi wajah, silakan hubungi administrator.
-                    </p>
-                    <a href="mailto:admin@faceattend.com" class="inline-flex items-center px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors text-sm font-medium">
-                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
-                        </svg>
-                        Hubungi Admin
-                    </a>
-                </div>
+                    Hubungi Admin
+                </a>
             </div>
         </div>
-        @else
+    </div>
+    @elseif(auth()->user()->employee && !auth()->user()->employee->face_registered)
+    <!-- ✅ TAMBAHKAN: Warning jika wajah belum terdaftar -->
+    <div class="bg-orange-50 border-l-4 border-orange-400 p-6 rounded-xl mb-6">
+        <div class="flex items-start">
+            <svg class="w-6 h-6 text-orange-400 mr-3 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+            </svg>
+            <div>
+                <h3 class="text-sm font-bold text-orange-800 mb-1">Wajah Belum Terdaftar</h3>
+                <p class="text-sm text-orange-700">
+                    Untuk menggunakan fitur absensi wajah, Anda perlu mendaftarkan wajah terlebih dahulu. Silakan hubungi administrator.
+                </p>
+            </div>
+        </div>
+    </div>
+    @else
         
         <!-- Quick Actions -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">

@@ -26,7 +26,7 @@
                         Masuk
                     </a>
                     <a href="/register" class="px-5 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition">
-                        Daftar Gratis
+                        Daftar 
                     </a>
                 </div>
             </div>
@@ -52,7 +52,7 @@
             </p>
             
             <div class="flex flex-wrap justify-center gap-4 mb-12">
-                <a href="/attendance" class="px-8 py-4 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-semibold text-lg shadow-lg shadow-blue-600/30 transition inline-flex items-center gap-2">
+                <a href="{{route('login')}}" class="px-8 py-4 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-semibold text-lg shadow-lg shadow-blue-600/30 transition inline-flex items-center gap-2">
                     <span>Coba Sekarang</span>
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
@@ -128,6 +128,37 @@
     </section>
 
     <!-- CTA Section -->
+    <section class="py-20 px-6">
+        <div class="flex flex-wrap justify-center gap-4 mb-12">
+        @auth
+        @if(auth()->user()->employee && auth()->user()->employee->face_registered)
+            <a href="/attendance" class="px-8 py-4 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-semibold text-lg shadow-lg shadow-blue-600/30 transition inline-flex items-center gap-2">
+                <span>Absen Sekarang</span>
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
+                </svg>
+            </a>
+        @else
+            <button onclick="alert('Silakan hubungi admin untuk mendaftarkan wajah Anda terlebih dahulu.')" class="px-8 py-4 bg-gray-400 text-white rounded-xl font-semibold text-lg shadow-lg cursor-not-allowed">
+                Wajah Belum Terdaftar
+            </button>
+        @endif
+        @else
+        <a href="{{ route('login') }}" class="px-8 py-4 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-semibold text-lg shadow-lg shadow-blue-600/30 transition inline-flex items-center gap-2">
+            <span>Login untuk Absen</span>
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
+            </svg>
+        </a>
+        @endauth
+    
+    <a href="#features" class="px-8 py-4 bg-white border-2 border-gray-200 text-gray-700 rounded-xl hover:border-gray-300 font-semibold text-lg transition">
+        Pelajari Lebih Lanjut
+    </a>
+    </div>
+    </section>
+
+     {{-- <!-- CTA Section -->
     <section class="py-20 px-6">
         <div class="max-w-4xl mx-auto">
             <div class="bg-gradient-to-r from-blue-600 to-blue-700 rounded-3xl p-12 text-center text-white shadow-xl">

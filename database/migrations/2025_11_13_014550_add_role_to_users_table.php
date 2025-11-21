@@ -11,7 +11,7 @@ return new class extends Migration
             // Tambah kolom employee_id jika belum ada
             if (!Schema::hasColumn('users', 'employee_id')) {
                 $table->foreignId('employee_id')->nullable()->after('id')
-                    ->constrained('employees')->onDelete('set null');
+                    ->constrained('employees')->onDelete('cascade');
             }
             
             // Tambah kolom role jika belum ada
