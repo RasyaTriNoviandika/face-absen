@@ -102,86 +102,81 @@ class ReportController extends Controller
     }
 
     private function exportCsv($attendances, $startDate, $endDate)
-{
-    $filename = "attendance-report-{$startDate}-to-{$endDate}.csv";
-    
-    return response()->streamDownload(function() use ($attendances) {
-        $file = fopen('php://output', 'w');
-        
-        // Add BOM for UTF-8
-        fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF));
-        
-        // Header
-        fputcsv($file, ['Tanggal', 'NIP', 'Nama', 'Departemen', 'Check In', 'Check Out', 'Status', 'Catatan']);
-        
-        // Data with null safety
-        foreach ($attendances as $attendance) {
-            fputcsv($file, [
-                $attendance->date->format('Y-m-d'),
-                $attendance->employee->nip ?? '-',
-                $attendance->employee->name ?? '-',
-                $attendance->employee->department ?? '-',
-                $attendance->check_in ?? '-',
-                $attendance->check_out ?? '-',
-                ucfirst($attendance->status ?? '-'),
-                $attendance->notes ?? '-',
-            ]);
-        }
-        
-        fclose($file);
-    }, $filename, [
-        'Content-Type' => 'text/csv',
-        'Content-Disposition' => "attachment; filename=\"{$filename}\"",
-    ]);
-}
-
-    private function exportExcel($attendances, $startDate, $endDate)
     {
-        // Implementasi export Excel menggunakan PhpSpreadsheet
-        $filename = "attendance-report-{$startDate}-to-{$endDate}.xlsx";
+        $filename = "attendance-report-{$startDate}-to-{$endDate}.csv";
         
-        $headers = [
-            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
-        ];
-
-        $callback = function() use ($attendances) {
+        return response()->streamDownload(function() use ($attendances) {
             $file = fopen('php://output', 'w');
             
+            // Add BOM for UTF-8
+            fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF));
+            
+            // Header
             fputcsv($file, ['Tanggal', 'NIP', 'Nama', 'Departemen', 'Check In', 'Check Out', 'Status', 'Catatan']);
             
+            // Data with null safety - FIXED
             foreach ($attendances as $attendance) {
                 fputcsv($file, [
-                    $attendance->date->format('Y-m-d'),
-                    $attendance->employee->nip,
-                    $attendance->employee->name,
-                    $attendance->employee->department,
-                    $attendance->check_in,
+                    $attendance->date ? $attendance->date->format('Y-m-d') : '-',
+                    $attendance->employee ? $attendance->employee->nip : '-',
+                    $attendance->employee ? $attendance->employee->name : '-',
+                    $attendance->employee ? $attendance->employee->department : '-',
+                    $attendance->check_in ?? '-',
                     $attendance->check_out ?? '-',
-                    ucfirst($attendance->status),
+                    ucfirst($attendance->status ?? '-'),
                     $attendance->notes ?? '-',
                 ]);
             }
             
             fclose($file);
-        };
+        }, $filename, [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+        ]);
+    }
 
-        return response()->stream($callback, 200, $headers);
+    private function exportExcel($attendances, $startDate, $endDate)
+    {
+        // Simple Excel export using CSV format with .xlsx extension
+        $filename = "attendance-report-{$startDate}-to-{$endDate}.xlsx";
+        
+        return response()->streamDownload(function() use ($attendances) {
+            $file = fopen('php://output', 'w');
+            
+            // Add BOM for UTF-8
+            fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF));
+            
+            // Header
+            fputcsv($file, ['Tanggal', 'NIP', 'Nama', 'Departemen', 'Check In', 'Check Out', 'Status', 'Catatan']);
+            
+            // Data with null safety
+            foreach ($attendances as $attendance) {
+                fputcsv($file, [
+                    $attendance->date ? $attendance->date->format('Y-m-d') : '-',
+                    $attendance->employee ? $attendance->employee->nip : '-',
+                    $attendance->employee ? $attendance->employee->name : '-',
+                    $attendance->employee ? $attendance->employee->department : '-',
+                    $attendance->check_in ?? '-',
+                    $attendance->check_out ?? '-',
+                    ucfirst($attendance->status ?? '-'),
+                    $attendance->notes ?? '-',
+                ]);
+            }
+            
+            fclose($file);
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+        ]);
     }
 
     private function exportPdf($attendances, $startDate, $endDate)
     {
-        // Implementasi basic PDF export menggunakan DomPDF atau TCPDF
-        // Untuk simplicity, return HTML yang bisa di-print
+        // Return HTML view for PDF
         $html = view('admin.reports.pdf', compact('attendances', 'startDate', 'endDate'))->render();
         
-        $filename = "attendance-report-{$startDate}-to-{$endDate}.pdf";
+        $filename = "attendance-report-{$startDate}-to-{$endDate}.html";
         
-        // Jika menggunakan DomPDF:
-        // $pdf = PDF::loadHTML($html);
-        // return $pdf->download($filename);
-        
-        // Sementara return HTML untuk print
         return response($html)
             ->header('Content-Type', 'text/html')
             ->header('Content-Disposition', "inline; filename=\"{$filename}\"");
